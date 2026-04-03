@@ -109,15 +109,18 @@ const sendOtpService = async (email) => {
 // ==========================
 const verifyOtpService = async (email, otp) => {
     let user = await User.findOne({ email });
-    let isNewUser = false;
 
     if (!user) {
-        isNewUser = true;
         user = await User.create({
             email,
             is_verified: true,
         });
     }
+
+    const isProfileComplete =
+        user.username && user.username.trim() !== "";
+
+    const isNewUser = !isProfileComplete;
 
     if (!user.otp || user.otp !== otp) {
         throw { statusCode: 400, message: "Invalid OTP" };

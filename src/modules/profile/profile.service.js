@@ -52,7 +52,32 @@ const updateProfile = async (userId, data) => {
     // ✅ HANDLE USER FIELDS
     // ==========================
     if (data.username !== undefined) {
-        user.username = data.username.trim();
+        const username = data.username.trim();
+
+        // ✅ 1. validation
+        const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+        if (!usernameRegex.test(username)) {
+            throw {
+                statusCode: 400,
+                message: "Username can only contain letters, numbers, _ and -",
+            };
+        }
+
+        // ✅ 2. duplicate check (🔥 YAHI MAIN FIX HAI)
+        const existingUser = await User.findOne({ username });
+
+        if (
+            existingUser &&
+            existingUser._id.toString() !== user._id.toString()
+        ) {
+            throw {
+                statusCode: 400,
+                message: "Username already taken",
+            };
+        }
+
+        // ✅ 3. save
+        user.username = username;
         await user.save();
     }
 

@@ -98,10 +98,10 @@ const verifyOtp = asyncHandler(async (req, res) => {
     res.cookie("token", data.token, {
         httpOnly: true,
         sameSite: "lax",
-        secure: false, // dev
+        secure: false,
+        path: "/",
     });
 
-    // ❌ token frontend ko mat bhejo
     return successResponse(
         res,
         "OTP verified successfully",
