@@ -1,5 +1,3 @@
-// src/modules/follow/follow.routes.js
-
 const express = require("express");
 const router = express.Router();
 
@@ -31,7 +29,7 @@ router.get(
 );
 
 router.get(
-    "/streamer/followers",
+    "/streamers/followers",
     authMiddleware,
     getFollowersController
 );

@@ -2,7 +2,6 @@
 
 const Streamer = require("./streamer.model");
 const StreamerRequest = require("./streamerRequest.model");
-const User = require("../auth/auth.model");
 
 const requestStreamer = async (userId) => {
     const existing = await StreamerRequest.findOne({

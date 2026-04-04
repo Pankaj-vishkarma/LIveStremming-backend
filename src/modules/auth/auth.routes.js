@@ -1,20 +1,31 @@
-// src/modules/auth/auth.routes.js
-
 const express = require("express");
 const router = express.Router();
 
-const { register, login, sendOtp, verifyOtp } = require("./auth.controller");
+const rateLimit = require("express-rate-limit");
+
+const { register, login, sendOtp, verifyOtp, logout } = require("./auth.controller");
+
+// limiter
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: {
+        success: false,
+        message: "Too many attempts, try again later",
+    },
+});
 
 // ==========================
-// 🔐 AUTH ROUTES
+// AUTH ROUTES
 // ==========================
 
-// OTP Flow (NEW)
-router.post("/send-otp", sendOtp);
-router.post("/verify-otp", verifyOtp);
+// OTP Flow
+router.post("/send-otp", authLimiter, sendOtp);
+router.post("/verify-otp", authLimiter, verifyOtp);
 
-// Existing routes (keep as backup)
+// Existing routes
 router.post("/register", register);
-router.post("/login", login);
+router.post("/login", authLimiter, login);
+router.post("/logout", logout);
 
 module.exports = router;

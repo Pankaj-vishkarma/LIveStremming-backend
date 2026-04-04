@@ -1,6 +1,6 @@
 const multer = require("multer");
 
-// memory storage (Cloudinary ke liye)
+// Memory storage for Cloudinary uploads
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {

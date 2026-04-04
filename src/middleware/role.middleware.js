@@ -1,5 +1,3 @@
-// src/middleware/role.middleware.js
-
 const roleMiddleware = (...allowedRoles) => {
     return (req, res, next) => {
         try {
@@ -11,7 +9,7 @@ const roleMiddleware = (...allowedRoles) => {
                 });
             }
 
-            // 🔍 Role detect
+            // Detect user role
             const role = req.user?.role || req.admin?.role || "user";
 
             // Role not allowed
@@ -23,7 +21,7 @@ const roleMiddleware = (...allowedRoles) => {
             }
 
             next();
-        } catch (error) {
+        } catch {
             return res.status(500).json({
                 success: false,
                 message: "Role check failed",

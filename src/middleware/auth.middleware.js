@@ -1,5 +1,3 @@
-// src/middleware/auth.middleware.js
-
 const { verifyToken } = require("../utils/jwt");
 const User = require("../modules/auth/auth.model");
 const Admin = require("../modules/admin/admin.model");
@@ -7,7 +5,7 @@ const Admin = require("../modules/admin/admin.model");
 const authMiddleware = async (req, res, next) => {
     try {
         // ==========================
-        // ✅ ONLY COOKIE BASED TOKEN
+        // ONLY COOKIE BASED TOKEN
         // ==========================
         const token = req.cookies?.token;
 
@@ -19,12 +17,12 @@ const authMiddleware = async (req, res, next) => {
         }
 
         // ==========================
-        // ✅ VERIFY TOKEN (SAFE)
+        // VERIFY TOKEN (SAFE)
         // ==========================
         let decoded;
         try {
             decoded = verifyToken(token);
-        } catch (err) {
+        } catch {
             return res.status(401).json({
                 success: false,
                 message: "Invalid or expired token",
@@ -32,7 +30,7 @@ const authMiddleware = async (req, res, next) => {
         }
 
         // ==========================
-        // ✅ ADMIN FLOW
+        // ADMIN FLOW
         // ==========================
         if (decoded.role === "super_admin" || decoded.role === "moderator") {
             const admin = await Admin.findById(decoded.id);
@@ -45,13 +43,12 @@ const authMiddleware = async (req, res, next) => {
             }
 
             req.admin = admin;
-            req.admin.role = admin.role;
 
             return next();
         }
 
         // ==========================
-        // ✅ USER FLOW
+        // USER FLOW
         // ==========================
         const user = await User.findById(decoded.id).select("-password");
 
@@ -63,16 +60,14 @@ const authMiddleware = async (req, res, next) => {
         }
 
         req.user = user;
-        req.user.role = decoded.role || user.role || "user";
+        req.user.role = user.role;
 
         return next();
 
     } catch (error) {
-        console.error("AUTH MIDDLEWARE ERROR:", error);
-
+        console.error(error);
         return res.status(401).json({
-            success: false,
-            message: "Unauthorized access",
+            message: "Unauthorized"
         });
     }
 };

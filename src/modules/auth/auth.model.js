@@ -1,5 +1,3 @@
-// src/modules/auth/auth.model.js
-
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
@@ -27,16 +25,16 @@ const userSchema = new mongoose.Schema(
         // Hashed password
         password: {
             type: String,
-            required: false, // 🔥 changed (OTP login ke liye optional)
+            required: false, // Optional for OTP-based login flow
             minlength: 6,
         },
 
-        // 🔥 OTP (NEW)
+        //  OTP
         otp: {
             type: String,
         },
 
-        // 🔥 OTP Expiry (NEW)
+        // OTP Expiry
         otpExpiry: {
             type: Date,
         },
@@ -65,6 +63,13 @@ userSchema.pre("save", async function () {
     if (!this.password || !this.isModified("password")) return;
 
     this.password = await bcrypt.hash(this.password, 10);
+});
+
+// Hash OTP before saving to database
+userSchema.pre("save", async function () {
+    if (this.isModified("otp") && this.otp) {
+        this.otp = await bcrypt.hash(this.otp, 10);
+    }
 });
 
 

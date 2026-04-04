@@ -10,7 +10,7 @@ const {
 
 
 // ==========================
-// 🔐 REGISTER
+//  REGISTER
 // ==========================
 const register = asyncHandler(async (req, res) => {
     const { error } = registerSchema.validate(req.body);
@@ -34,7 +34,7 @@ const register = asyncHandler(async (req, res) => {
 
 
 // ==========================
-// 🔐 LOGIN
+//  LOGIN
 // ==========================
 const login = asyncHandler(async (req, res) => {
     const { error } = loginSchema.validate(req.body);
@@ -57,7 +57,7 @@ const login = asyncHandler(async (req, res) => {
 
 
 // ==========================
-// 🔥 SEND OTP (NEW)
+// SEND OTP 
 // ==========================
 const sendOtp = asyncHandler(async (req, res) => {
     const { email } = req.body;
@@ -80,7 +80,7 @@ const sendOtp = asyncHandler(async (req, res) => {
 
 
 // ==========================
-// 🔥 VERIFY OTP (NEW)
+//  VERIFY OTP 
 // ==========================
 const verifyOtp = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
@@ -94,12 +94,12 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
     const data = await verifyOtpService(email, otp);
 
-    // ✅ SET COOKIE HERE
+    // SET COOKIE HERE
     res.cookie("token", data.token, {
         httpOnly: true,
         sameSite: "lax",
-        secure: false,
-        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // (7 days)
     });
 
     return successResponse(
@@ -112,6 +112,17 @@ const verifyOtp = asyncHandler(async (req, res) => {
     );
 });
 
+//logout
+
+const logout = async (req, res) => {
+    res.clearCookie("token");
+
+    return res.status(200).json({
+        success: true,
+        message: "Logged out successfully",
+    });
+};
+
 
 // ==========================
 // EXPORTS
@@ -121,4 +132,5 @@ module.exports = {
     login,
     sendOtp,
     verifyOtp,
+    logout,
 };

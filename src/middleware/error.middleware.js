@@ -1,6 +1,6 @@
 // src/middleware/error.middleware.js
 
-const errorMiddleware = (err, req, res, next) => {
+const errorMiddleware = (err, req, res) => {
     console.error("Error:", err);
 
     let statusCode = err.statusCode || 500;

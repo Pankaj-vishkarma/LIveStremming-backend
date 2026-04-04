@@ -1,22 +1,24 @@
-// src/modules/admin/admin.service.js
-
 const bcrypt = require("bcryptjs");
 const Admin = require("./admin.model");
 const StreamerRequest = require("../streamer/streamerRequest.model");
 const Streamer = require("../streamer/streamer.model");
 const { generateToken } = require("../../utils/jwt");
+const AppError = require("../../utils/AppError");
 
 // Admin login
 const adminLogin = async (email, password) => {
     const admin = await Admin.findOne({ email });
 
-    if (!admin) throw { statusCode: 400, message: "Invalid credentials" };
+    if (!admin) throw new AppError("Invalid credentials", 400);
 
     const match = await bcrypt.compare(password, admin.password);
 
-    if (!match) throw { statusCode: 400, message: "Invalid credentials" };
+    if (!match) throw new AppError("Invalid credentials", 400);
 
-    const token = generateToken({ id: admin._id, role: "admin" });
+    const token = generateToken({
+        id: admin._id,
+        role: admin.role
+    });
 
     return {
         token,
@@ -38,7 +40,7 @@ const approveRequest = async (requestId) => {
     const request = await StreamerRequest.findById(requestId);
 
     if (!request || request.request_status !== "pending") {
-        throw { statusCode: 400, message: "Invalid request" };
+        throw new AppError("Invalid request", 400);
     }
 
     request.request_status = "approved";
@@ -58,7 +60,7 @@ const rejectRequest = async (requestId, reason) => {
     const request = await StreamerRequest.findById(requestId);
 
     if (!request || request.request_status !== "pending") {
-        throw { statusCode: 400, message: "Invalid request" };
+        throw new AppError("Invalid request", 400);
     }
 
     request.request_status = "rejected";

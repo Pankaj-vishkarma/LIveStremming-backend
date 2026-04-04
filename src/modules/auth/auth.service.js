@@ -1,24 +1,24 @@
-// src/modules/auth/auth.service.js
-
 const User = require("./auth.model");
 const { generateToken } = require("../../utils/jwt");
 const sendEmail = require("../../utils/mailer");
+const bcrypt = require("bcryptjs");
+const AppError = require("../../utils/AppError");
 
 
 // ==========================
-// 🔐 REGISTER
+//  REGISTER
 // ==========================
 const registerUser = async (data) => {
     const { email, username, password } = data;
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
-        throw { statusCode: 400, message: "Email already registered" };
+        throw new AppError("Email already registered", 400);
     }
 
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
-        throw { statusCode: 400, message: "Username already taken" };
+        throw new AppError("Username already taken", 400);
     }
 
     const user = await User.create({ email, username, password });
@@ -41,7 +41,7 @@ const registerUser = async (data) => {
 
 
 // ==========================
-// 🔐 LOGIN
+// LOGIN
 // ==========================
 const loginUser = async (data) => {
     const { email, password } = data;
@@ -49,13 +49,13 @@ const loginUser = async (data) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-        throw { statusCode: 400, message: "User not found" };
+        throw new AppError("User not found", 400);
     }
 
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
-        throw { statusCode: 400, message: "Invalid credentials" };
+        throw new AppError("Invalid credentials", 400);
     }
 
     const token = generateToken({
@@ -76,7 +76,7 @@ const loginUser = async (data) => {
 
 
 // ==========================
-// 🔥 SEND OTP (FIXED)
+//  SEND OTP 
 // ==========================
 const sendOtpService = async (email) => {
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -85,13 +85,16 @@ const sendOtpService = async (email) => {
     let user = await User.findOne({ email });
 
     if (user) {
-        // ✅ only update OTP
         user.otp = otp;
         user.otpExpiry = otpExpiry;
         await user.save();
     } else {
-        // ❌ user create mat karo
-        // 👉 temporary OTP handling (no DB user yet)
+        // create temp user with OTP
+        user = await User.create({
+            email,
+            otp,
+            otpExpiry,
+        });
     }
 
     await sendEmail(
@@ -105,30 +108,30 @@ const sendOtpService = async (email) => {
 
 
 // ==========================
-// 🔥 VERIFY OTP (FIXED)
+// VERIFY OTP (FIXED)
 // ==========================
 const verifyOtpService = async (email, otp) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-        user = await User.create({
-            email,
-            is_verified: true,
-        });
+        throw new AppError("User not found", 400);
+    }
+
+    // OTP compare using bcrypt
+    const isMatch = await bcrypt.compare(otp, user.otp);
+
+    if (!user.otp || !isMatch) {
+        throw new AppError("Invalid OTP", 400);
+    }
+
+    if (!user.otpExpiry || user.otpExpiry < new Date()) {
+        throw new AppError("OTP expired", 400);
     }
 
     const isProfileComplete =
         user.username && user.username.trim() !== "";
 
     const isNewUser = !isProfileComplete;
-
-    if (!user.otp || user.otp !== otp) {
-        throw { statusCode: 400, message: "Invalid OTP" };
-    }
-
-    if (!user.otpExpiry || user.otpExpiry < new Date()) {
-        throw { statusCode: 400, message: "OTP expired" };
-    }
 
     user.is_verified = true;
     user.otp = null;
@@ -152,6 +155,7 @@ const verifyOtpService = async (email, otp) => {
         },
     };
 };
+
 
 
 // ==========================

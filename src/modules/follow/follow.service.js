@@ -1,9 +1,8 @@
-// src/modules/follow/follow.service.js
-
 const Follow = require("./follow.model");
 const Streamer = require("../streamer/streamer.model");
 const Profile = require("../profile/profile.model");
 const User = require("../auth/auth.model");
+const AppError = require("../../utils/AppError");
 
 // Follow
 const followStreamer = async (userId, username) => {
@@ -12,11 +11,11 @@ const followStreamer = async (userId, username) => {
     });
 
     if (!streamer) {
-        throw { statusCode: 400, message: "Streamer not found" };
+        throw new AppError("Streamer not found", 400);
     }
 
     if (streamer.user_id.toString() === userId.toString()) {
-        throw { statusCode: 400, message: "Cannot follow yourself" };
+        throw new AppError("Cannot follow yourself", 400);
     }
 
     await Follow.create({
@@ -34,7 +33,7 @@ const unfollowStreamer = async (userId, username) => {
     });
 
     if (!streamer) {
-        throw { statusCode: 400, message: "Streamer not found" };
+        throw new AppError("Streamer not found", 400);
     }
 
     const deleted = await Follow.findOneAndDelete({
@@ -43,7 +42,7 @@ const unfollowStreamer = async (userId, username) => {
     });
 
     if (!deleted) {
-        throw { statusCode: 400, message: "Not following this streamer" };
+        throw new AppError("Not following this streamer", 400);
     }
 
     return true;
@@ -53,29 +52,35 @@ const unfollowStreamer = async (userId, username) => {
 const getFollowing = async (userId) => {
     const follows = await Follow.find({ follower_id: userId }).lean();
 
-    const result = await Promise.all(
-        follows.map(async (f) => {
-            const user = await User.findById(f.following_id);
-            const profile = await Profile.findOne({
-                user_id: f.following_id,
-            });
-            const streamer = await Streamer.findOne({
-                user_id: f.following_id,
-            });
+    const userIds = follows.map(f => f.following_id);
 
-            return {
-                username: user.username,
-                channel_name: streamer?.channel_name || user.username,
-                display_photo: profile?.display_photo || null,
-                is_live: streamer?.is_live || false,
-            };
-        })
-    );
+    const [users, profiles, streamers] = await Promise.all([
+        User.find({ _id: { $in: userIds } }).lean(),
+        Profile.find({ user_id: { $in: userIds } }).lean(),
+        Streamer.find({ user_id: { $in: userIds } }).lean(),
+    ]);
+
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+    const profileMap = new Map(profiles.map(p => [p.user_id.toString(), p]));
+    const streamerMap = new Map(streamers.map(s => [s.user_id.toString(), s]));
+
+    const result = follows.map((f) => {
+        const user = userMap.get(f.following_id.toString());
+        const profile = profileMap.get(f.following_id.toString());
+        const streamer = streamerMap.get(f.following_id.toString());
+
+        return {
+            username: user?.username,
+            channel_name: streamer?.channel_name || user?.username,
+            display_photo: profile?.display_photo || null,
+            is_live: streamer?.is_live || false,
+        };
+    });
 
     return result;
 };
 
-// Followers list (cursor pagination)
+// Followers list
 const getFollowers = async (userId, query) => {
     const { limit = 20, cursor } = query;
 
@@ -93,20 +98,26 @@ const getFollowers = async (userId, query) => {
     const has_more = followers.length > limit;
     if (has_more) followers.pop();
 
-    const result = await Promise.all(
-        followers.map(async (f) => {
-            const user = await User.findById(f.follower_id);
-            const profile = await Profile.findOne({
-                user_id: f.follower_id,
-            });
+    const userIds = followers.map(f => f.follower_id);
 
-            return {
-                username: user.username,
-                display_photo: profile?.display_photo || null,
-                followed_at: f.createdAt,
-            };
-        })
-    );
+    const [users, profiles] = await Promise.all([
+        User.find({ _id: { $in: userIds } }).lean(),
+        Profile.find({ user_id: { $in: userIds } }).lean(),
+    ]);
+
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+    const profileMap = new Map(profiles.map(p => [p.user_id.toString(), p]));
+
+    const result = followers.map((f) => {
+        const user = userMap.get(f.follower_id.toString());
+        const profile = profileMap.get(f.follower_id.toString());
+
+        return {
+            username: user?.username,
+            display_photo: profile?.display_photo || null,
+            followed_at: f.createdAt,
+        };
+    });
 
     return {
         followers: result,

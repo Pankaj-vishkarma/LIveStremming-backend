@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
+const morgan = require("morgan");
 
 
 const routes = require("./routes/index");
@@ -24,6 +25,8 @@ const app = express();
 
 // Secure HTTP headers
 app.use(helmet());
+
+app.use(morgan("dev"));
 
 // Prevent HTTP param pollution
 app.use(hpp());
@@ -90,7 +93,7 @@ app.use("/api/v1", routes);
 // 404 HANDLER
 // ==========================
 
-app.use((req, res, next) => {
+app.use((req, res) => {
     res.status(404).json({
         success: false,
         message: "Route not found",
