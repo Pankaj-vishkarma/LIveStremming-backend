@@ -1,4 +1,4 @@
-// src/app.js
+
 
 const express = require("express");
 const cors = require("cors");
@@ -50,7 +50,7 @@ app.use(
 
 app.use(
     cors({
-        origin: [process.env.FRONTEND_URL], // production me restrict karna
+        origin: [process.env.FRONTEND_URL],
         credentials: true,
     })
 );
