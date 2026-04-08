@@ -1,5 +1,3 @@
-// src/modules/streamer/streamerRequest.model.js
-
 const mongoose = require("mongoose");
 
 const streamerRequestSchema = new mongoose.Schema(
@@ -8,6 +6,7 @@ const streamerRequestSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
+            unique: true,
         },
         request_status: {
             type: String,

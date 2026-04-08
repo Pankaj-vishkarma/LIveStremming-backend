@@ -6,7 +6,7 @@ const StreamerRequest = require("./streamerRequest.model");
 const requestStreamer = async (userId) => {
     const existing = await StreamerRequest.findOne({
         user_id: userId,
-        request_status: "pending",
+        request_status: { $in: ["pending", "approved"] },
     });
 
     if (existing) {
@@ -29,7 +29,9 @@ const getRequestStatus = async (userId) => {
     });
 
     if (!request) {
-        throw { statusCode: 400, message: "No request found" };
+        return {
+            request_status: "not_applied",
+        };
     }
 
     return request;

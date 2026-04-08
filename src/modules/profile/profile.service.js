@@ -4,7 +4,7 @@ const Profile = require("./profile.model");
 const User = require("../auth/auth.model");
 
 // ==========================
-// 📥 GET PROFILE
+// GET PROFILE
 // ==========================
 const getProfile = async (userId) => {
     const user = await User.findById(userId).select("-password");
@@ -22,6 +22,7 @@ const getProfile = async (userId) => {
     return {
         id: user._id,
         email: user.email,
+        role: user.role,
         username: user.username || "",
         is_verified: user.is_verified,
         display_photo: profile.display_photo,
@@ -33,7 +34,7 @@ const getProfile = async (userId) => {
 };
 
 // ==========================
-// ✏️ UPDATE PROFILE
+// UPDATE PROFILE
 // ==========================
 const updateProfile = async (userId, data) => {
     let profile = await Profile.findOne({ user_id: userId });
@@ -49,12 +50,12 @@ const updateProfile = async (userId, data) => {
     }
 
     // ==========================
-    // ✅ HANDLE USER FIELDS
+    //  HANDLE USER FIELDS
     // ==========================
     if (data.username !== undefined) {
         const username = data.username.trim();
 
-        // ✅ 1. validation
+        //  1. validation
         const usernameRegex = /^[a-zA-Z0-9_-]+$/;
         if (!usernameRegex.test(username)) {
             throw {
@@ -63,7 +64,7 @@ const updateProfile = async (userId, data) => {
             };
         }
 
-        // ✅ 2. duplicate check (🔥 YAHI MAIN FIX HAI)
+        //  2. duplicate check
         const existingUser = await User.findOne({ username });
 
         if (
@@ -76,13 +77,13 @@ const updateProfile = async (userId, data) => {
             };
         }
 
-        // ✅ 3. save
+        // 3. save
         user.username = username;
         await user.save();
     }
 
     // ==========================
-    // ✅ HANDLE PROFILE FIELDS (SAFE UPDATE)
+    // HANDLE PROFILE FIELDS
     // ==========================
     const allowedProfileFields = [
         "display_photo",
@@ -101,10 +102,11 @@ const updateProfile = async (userId, data) => {
     await profile.save();
 
     // ==========================
-    // 📤 FINAL RESPONSE
+    // FINAL RESPONSE
     // ==========================
     return {
         id: user._id,
+        role: user.role,
         email: user.email,
         username: user.username || "",
         is_verified: user.is_verified,

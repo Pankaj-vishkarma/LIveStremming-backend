@@ -1,4 +1,4 @@
-// src/modules/admin/admin.routes.js
+
 
 const express = require("express");
 const router = express.Router();
@@ -15,7 +15,7 @@ const { roleMiddleware } = require("../../middleware/role.middleware");
 
 
 // ==========================
-// 🔐 PUBLIC ROUTE
+// PUBLIC ROUTE
 // ==========================
 
 // Admin login (no auth required)
@@ -23,14 +23,14 @@ router.post("/login", loginController);
 
 
 // ==========================
-// 🔒 PROTECTED ADMIN ROUTES
+//  PROTECTED ADMIN ROUTES
 // ==========================
 
 // Get all streamer requests
 router.get(
     "/streamer/requests",
     authMiddleware,
-    roleMiddleware("super_admin", "moderator"),
+    roleMiddleware("admin"),
     getRequestsController
 );
 
@@ -39,7 +39,7 @@ router.get(
 router.put(
     "/streamer/requests/:id/approve",
     authMiddleware,
-    roleMiddleware("super_admin", "moderator"),
+    roleMiddleware("admin"),
     approveController
 );
 
@@ -48,7 +48,7 @@ router.put(
 router.put(
     "/streamer/requests/:id/reject",
     authMiddleware,
-    roleMiddleware("super_admin", "moderator"),
+    roleMiddleware("admin"),
     rejectController
 );
 

@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema(
         // Role-based access control
         role: {
             type: String,
-            enum: ["user", "streamer"],
+            enum: ["user", "admin", "streamer"],
             default: "user",
         },
     },

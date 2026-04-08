@@ -1,5 +1,3 @@
-// src/modules/admin/admin.controller.js
-
 const asyncHandler = require("../../utils/asyncHandler");
 const { successResponse } = require("../../utils/response");
 
@@ -19,7 +17,7 @@ const loginController = asyncHandler(async (req, res) => {
 });
 
 const getRequestsController = asyncHandler(async (req, res) => {
-    const data = await getStreamerRequests();
+    const data = await getStreamerRequests(req.query);
 
     return successResponse(res, "requests fetched", data);
 });
