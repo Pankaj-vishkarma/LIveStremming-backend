@@ -12,7 +12,7 @@ const goLiveController = asyncHandler(async (req, res) => {
 });
 
 const joinLiveController = asyncHandler(async (req, res) => {
-    const data = await joinLive(req.params.username);
+    const data = await joinLive(req.params.username, req.user);
 
     return successResponse(res, "join token generated", data);
 });

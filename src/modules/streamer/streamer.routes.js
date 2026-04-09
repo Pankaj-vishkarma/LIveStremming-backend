@@ -9,6 +9,7 @@ const {
     getStreamerProfileController,
     updateStreamerProfileController,
     getPublicStreamersController,
+    getStreamerMeController
 } = require("./streamer.controller");
 
 const { authMiddleware } = require("../../middleware/auth.middleware");
@@ -62,6 +63,14 @@ router.put(
     authMiddleware,
     roleMiddleware("streamer"),
     updateStreamerProfileController
+);
+
+router.get(
+    "/me",
+    authMiddleware,
+    roleMiddleware("streamer"),
+    getStreamerMeController
+    
 );
 
 

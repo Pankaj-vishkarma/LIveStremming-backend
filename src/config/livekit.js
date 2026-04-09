@@ -1,4 +1,3 @@
-// src/config/livekit.js
 
 const { AccessToken } = require("livekit-server-sdk");
 
@@ -7,7 +6,7 @@ const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
 // Generate token
-const generateLiveKitToken = (identity, room) => {
+const generateLiveKitToken = (identity, room, isStreamer = false) => {
     const at = new AccessToken(
         LIVEKIT_API_KEY,
         LIVEKIT_API_SECRET,
@@ -19,7 +18,7 @@ const generateLiveKitToken = (identity, room) => {
     at.addGrant({
         roomJoin: true,
         room,
-        canPublish: true,
+        canPublish: isStreamer,
         canSubscribe: true,
     });
 

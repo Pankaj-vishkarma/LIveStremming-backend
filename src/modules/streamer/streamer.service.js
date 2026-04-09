@@ -1,7 +1,6 @@
-// src/modules/streamer/streamer.service.js
-
 const Streamer = require("./streamer.model");
 const StreamerRequest = require("./streamerRequest.model");
+const Profile = require("../profile/profile.model");
 
 const requestStreamer = async (userId) => {
     const existing = await StreamerRequest.findOne({
@@ -80,7 +79,6 @@ const updateStreamerProfile = async (userId, data) => {
 
 // ADD THIS FUNCTION
 
-const Profile = require("../profile/profile.model");
 
 const getPublicStreamers = async (query) => {
     const { limit = 10, cursor, category, is_live } = query;
@@ -138,10 +136,38 @@ const getPublicStreamers = async (query) => {
 };
 
 
+
+const getStreamerMe = async (userId) => {
+    const streamer = await Streamer.findOne({ user_id: userId }).lean();
+
+    if (!streamer) {
+        throw { statusCode: 404, message: "Streamer not found" };
+    }
+
+    const profile = await Profile.findOne({ user_id: userId }).lean();
+
+    return {
+        user_id: streamer.user_id,
+
+        // PROFILE DATA
+        username: profile?.username,
+        display_photo: profile?.display_photo,
+        about_me: profile?.about_me,
+
+        // STREAMER DATA
+        channel_name: streamer.channel_name,
+        channel_description: streamer.channel_description,
+        categories: streamer.categories,
+        is_live: streamer.is_live,
+    };
+};
+
+
 module.exports = {
     requestStreamer,
     getRequestStatus,
     getStreamerProfile,
     updateStreamerProfile,
     getPublicStreamers,
+    getStreamerMe,
 };

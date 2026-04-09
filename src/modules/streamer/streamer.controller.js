@@ -1,4 +1,4 @@
-// src/modules/streamer/streamer.controller.js
+
 
 const asyncHandler = require("../../utils/asyncHandler");
 const { successResponse } = require("../../utils/response");
@@ -9,6 +9,7 @@ const {
     getStreamerProfile,
     updateStreamerProfile,
     getPublicStreamers,
+    getStreamerMe,
 } = require("./streamer.service");
 
 const {
@@ -72,10 +73,19 @@ const getPublicStreamersController = asyncHandler(async (req, res) => {
     );
 });
 
+
+
+const getStreamerMeController = asyncHandler(async (req, res) => {
+    const data = await getStreamerMe(req.user._id);
+
+    return successResponse(res, "streamer data fetched", data);
+});
+
 module.exports = {
     requestStreamerController,
     getRequestStatusController,
     getStreamerProfileController,
     updateStreamerProfileController,
     getPublicStreamersController,
+    getStreamerMeController
 };

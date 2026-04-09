@@ -35,12 +35,14 @@ const adminLogin = async (email, password) => {
 // Get all requests
 
 const getStreamerRequests = async (query = {}) => {
-    const { status = "pending", limit = 10, page = 1 } = query;
+    const { status, limit = 10, page = 1 } = query;
 
     let filter = {};
 
     if (status) {
         filter.request_status = status;
+    } else {
+        filter.request_status = { $in: ["pending", "approved"] };
     }
 
     const skip = (page - 1) * limit;
@@ -53,7 +55,6 @@ const getStreamerRequests = async (query = {}) => {
 
     const userIds = requests.map((r) => r.user_id);
 
-    //fetch profiles in bulk
     const profiles = await Profile.find({
         user_id: { $in: userIds },
     }).lean();
@@ -71,7 +72,6 @@ const getStreamerRequests = async (query = {}) => {
             request_status: r.request_status,
             rejection_reason: r.rejection_reason,
             createdAt: r.createdAt,
-
             user: {
                 user_id: r.user_id,
                 username: profile?.username || "Unknown",

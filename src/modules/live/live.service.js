@@ -1,5 +1,3 @@
-// src/modules/live/live.service.js
-
 const Streamer = require("../streamer/streamer.model");
 const { generateLiveKitToken, LIVEKIT_URL } = require("../../config/livekit");
 
@@ -8,21 +6,37 @@ const goLive = async (userId) => {
     const streamer = await Streamer.findOne({ user_id: userId });
 
     if (!streamer) {
-        throw { statusCode: 403, message: "Not a streamer" };
+        const error = new Error("Not a streamer");
+        error.statusCode = 403;
+        throw error;
     }
 
     if (streamer.is_live) {
-        throw { statusCode: 400, message: "Already live" };
+
+        const roomName = streamer.channel_name;
+
+        const token = await generateLiveKitToken(
+            streamer.channel_name,
+            roomName,
+            true
+        );
+
+        return {
+            token,
+            room_name: roomName,
+            livekit_url: LIVEKIT_URL,
+        };
     }
 
     streamer.is_live = true;
     await streamer.save();
 
-    const roomName = `${streamer.channel_name}-room`;
+    const roomName = streamer.channel_name;
 
-    const token = generateLiveKitToken(
+    const token = await generateLiveKitToken(
         streamer.channel_name,
-        roomName
+        roomName,
+        true
     );
 
     return {
@@ -33,24 +47,29 @@ const goLive = async (userId) => {
 };
 
 // Join Live
-const joinLive = async (username) => {
+const joinLive = async (username, user) => {
     const streamer = await Streamer.findOne({
         channel_name: username,
     });
 
     if (!streamer) {
-        throw { statusCode: 400, message: "Streamer not found" };
+        const error = new Error("Streamer not found");
+        error.statusCode = 400;
+        throw error;
     }
 
     if (!streamer.is_live) {
-        throw { statusCode: 400, message: "Streamer is not live" };
+        const error = new Error("Streamer is not live");
+        error.statusCode = 400;
+        throw error;
     }
 
-    const roomName = `${streamer.channel_name}-room`;
+    const roomName = streamer.channel_name;
 
-    const token = generateLiveKitToken(
+    const token = await generateLiveKitToken(
         `viewer-${Date.now()}`,
-        roomName
+        roomName,
+        false
     );
 
     return {
@@ -65,7 +84,15 @@ const endLive = async (userId) => {
     const streamer = await Streamer.findOne({ user_id: userId });
 
     if (!streamer) {
-        throw { statusCode: 403, message: "Not a streamer" };
+        const error = new Error("Not a streamer");
+        error.statusCode = 403;
+        throw error;
+    }
+
+    if (!streamer.is_live) {
+        const error = new Error("Not live");
+        error.statusCode = 400;
+        throw error;
     }
 
     streamer.is_live = false;

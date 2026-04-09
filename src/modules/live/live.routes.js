@@ -1,5 +1,3 @@
-// src/modules/live/live.routes.js
-
 const express = require("express");
 const router = express.Router();
 
@@ -39,7 +37,11 @@ router.post(
 // ==========================
 
 // Join live stream (any user / guest allowed)
-router.get("/streamers/:username/join", joinLiveController);
+router.get(
+    "/streamers/:username/join",
+    authMiddleware,
+    joinLiveController
+);
 
 
 module.exports = router;
