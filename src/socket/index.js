@@ -1,5 +1,8 @@
 const { Server } = require("socket.io");
 
+const liveHandler = require("./handlers/live.handler");
+const chatHandler = require("./handlers/chat.handler");
+
 let io;
 
 const initSocket = (server) => {
@@ -13,14 +16,9 @@ const initSocket = (server) => {
     io.on("connection", (socket) => {
         console.log(" Socket connected:", socket.id);
 
-        // attach handlers
         console.log(" Attaching handlers...");
 
-        require("./handlers/live.handler")(io, socket);
-
-        const chatHandler = require("./handlers/chat.handler");
-        console.log(" Chat handler loaded:", typeof chatHandler);
-
+        liveHandler(io, socket);
         chatHandler(io, socket);
 
         socket.on("disconnect", () => {

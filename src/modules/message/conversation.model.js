@@ -1,5 +1,3 @@
-// src/modules/message/conversation.model.js
-
 const mongoose = require("mongoose");
 
 const conversationSchema = new mongoose.Schema(
@@ -21,5 +19,8 @@ const conversationSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+// Added index for faster participant-based queries
+conversationSchema.index({ participants: 1 });
 
 module.exports = mongoose.model("Conversation", conversationSchema);

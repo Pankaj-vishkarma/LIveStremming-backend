@@ -1,7 +1,3 @@
-
-
-
-// Success response handler
 const successResponse = (res, message, data = null, status = 200) => {
     return res.status(status).json({
         success: true,
@@ -10,17 +6,6 @@ const successResponse = (res, message, data = null, status = 200) => {
     });
 };
 
-
-// Error response handler
-const errorResponse = (res, message, status = 500) => {
-    return res.status(status).json({
-        success: false,
-        message,
-    });
-};
-
-
 module.exports = {
     successResponse,
-    errorResponse,
 };

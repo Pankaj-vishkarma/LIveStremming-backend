@@ -10,6 +10,18 @@ const {
 const { authMiddleware } = require("../../middleware/auth.middleware");
 const { roleMiddleware } = require("../../middleware/role.middleware");
 
+const rateLimit = require("express-rate-limit");
+
+// Rate limiter for join live
+const joinLiveLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 20, // limit each IP to 20 requests per minute
+    message: {
+        success: false,
+        message: "Too many requests, please try again later",
+    },
+});
+
 
 // ==========================
 //  STREAMER ONLY ROUTES
@@ -36,12 +48,12 @@ router.post(
 //  PUBLIC ROUTE
 // ==========================
 
-// Join live stream (any user / guest allowed)
+// Join live stream (protected + rate limited)
 router.get(
     "/streamers/:username/join",
     authMiddleware,
+    joinLiveLimiter,
     joinLiveController
 );
-
 
 module.exports = router;

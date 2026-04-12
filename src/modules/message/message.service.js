@@ -1,20 +1,15 @@
-// src/modules/message/message.service.js
-
 const Message = require("./message.model");
 const Conversation = require("./conversation.model");
 const User = require("../auth/auth.model");
+const AppError = require("../../utils/AppError");
 
 // Create or find conversation
 const getOrCreateConversation = async (userId, otherUserId) => {
-    let convo = await Conversation.findOne({
-        participants: { $all: [userId, otherUserId] },
-    });
-
-    if (!convo) {
-        convo = await Conversation.create({
-            participants: [userId, otherUserId],
-        });
-    }
+    const convo = await Conversation.findOneAndUpdate(
+        { participants: { $all: [userId, otherUserId] } },
+        { $setOnInsert: { participants: [userId, otherUserId] } },
+        { new: true, upsert: true }
+    );
 
     return convo;
 };
@@ -24,11 +19,11 @@ const sendMessage = async (senderId, username, content) => {
     const receiver = await User.findOne({ username });
 
     if (!receiver) {
-        throw { statusCode: 400, message: "User not found" };
+        throw new AppError("User not found", 400);
     }
 
     if (receiver._id.toString() === senderId.toString()) {
-        throw { statusCode: 400, message: "Cannot message yourself" };
+        throw new AppError("Cannot message yourself", 400);
     }
 
     const convo = await getOrCreateConversation(
@@ -43,15 +38,19 @@ const sendMessage = async (senderId, username, content) => {
         content,
     });
 
-    // Update conversation
-    convo.last_message = content;
-    convo.last_message_at = new Date();
-    await convo.save();
+    // Update conversation 
+    await Conversation.updateOne(
+        { _id: convo._id },
+        {
+            last_message: content,
+            last_message_at: new Date(),
+        }
+    );
 
     return message;
 };
 
-// Get conversations list
+// Get conversations list 
 const getConversations = async (userId) => {
     const convos = await Conversation.find({
         participants: userId,
@@ -59,42 +58,74 @@ const getConversations = async (userId) => {
         .sort({ last_message_at: -1 })
         .lean();
 
-    const result = await Promise.all(
-        convos.map(async (c) => {
-            const otherUserId = c.participants.find(
-                (id) => id.toString() !== userId.toString()
-            );
-
-            const user = await User.findById(otherUserId);
-
-            const unread_count = await Message.countDocuments({
-                conversation_id: c._id,
-                receiver_id: userId,
-                read_at: null,
-            });
-
-            return {
-                conversation_id: c._id,
-                other_user: {
-                    username: user.username,
-                    display_photo: null, // later profile se join karenge
-                },
-                last_message: c.last_message,
-                last_message_at: c.last_message_at,
-                unread_count,
-            };
-        })
+    // Extract other user ids
+    const userIds = convos.map((c) =>
+        c.participants.find(
+            (id) => id.toString() !== userId.toString()
+        )
     );
 
-    return result;
+    // Batch fetch users
+    const users = await User.find({
+        _id: { $in: userIds },
+    }).lean();
+
+    const userMap = {};
+    users.forEach((u) => {
+        userMap[u._id.toString()] = u;
+    });
+
+    // Aggregation for unread counts
+    const unreadData = await Message.aggregate([
+        {
+            $match: {
+                receiver_id: userId,
+                read_at: null,
+            },
+        },
+        {
+            $group: {
+                _id: "$conversation_id",
+                count: { $sum: 1 },
+            },
+        },
+    ]);
+
+    const unreadMap = {};
+    unreadData.forEach((u) => {
+        unreadMap[u._id.toString()] = u.count;
+    });
+
+    // Final response
+    return convos.map((c) => {
+        const otherUserId = c.participants.find(
+            (id) => id.toString() !== userId.toString()
+        );
+
+        const user = userMap[otherUserId?.toString()];
+
+        return {
+            conversation_id: c._id,
+            other_user: {
+                username: user?.username || "Unknown",
+                display_photo: null,
+            },
+            last_message: c.last_message,
+            last_message_at: c.last_message_at,
+            unread_count: unreadMap[c._id.toString()] || 0,
+        };
+    });
 };
 
-// Get messages (cursor pagination)
+// Get messages
 const getMessages = async (userId, username, query) => {
     const { limit = 20, cursor } = query;
 
     const otherUser = await User.findOne({ username });
-    if (!otherUser) throw { statusCode: 400, message: "User not found" };
+
+    if (!otherUser) {
+        throw new AppError("User not found", 400);
+    }
 
     const convo = await getOrCreateConversation(
         userId,
@@ -121,7 +152,7 @@ const getMessages = async (userId, username, query) => {
             sender_username:
                 m.sender_id.toString() === userId.toString()
                     ? "me"
-                    : username,
+                    : otherUser.username,
             content: m.content,
             read_at: m.read_at,
             created_at: m.createdAt,
@@ -136,6 +167,10 @@ const getMessages = async (userId, username, query) => {
 // Mark as read
 const markAsRead = async (userId, username) => {
     const otherUser = await User.findOne({ username });
+
+    if (!otherUser) {
+        throw new AppError("User not found", 400);
+    }
 
     const convo = await getOrCreateConversation(
         userId,

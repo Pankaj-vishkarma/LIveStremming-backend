@@ -1,7 +1,12 @@
-// src/middleware/error.middleware.js
+const logger = require("../utils/logger");
 
 const errorMiddleware = (err, req, res) => {
-    console.error("Error:", err);
+    // Safe logging based on environment
+    if (process.env.NODE_ENV === "production") {
+        logger.error(err.message);
+    } else {
+        logger.error(err);
+    }
 
     let statusCode = err.statusCode || 500;
     let message = err.message || "Internal Server Error";
@@ -15,7 +20,12 @@ const errorMiddleware = (err, req, res) => {
     // Duplicate key error (MongoDB unique)
     if (err.code === 11000) {
         statusCode = 400;
-        const field = Object.keys(err.keyValue)[0];
+
+        // Safe guard for keyValue
+        const field = err.keyValue
+            ? Object.keys(err.keyValue)[0]
+            : "field";
+
         message = `${field} already exists`;
     }
 

@@ -1,5 +1,3 @@
-// src/modules/follow/follow.model.js
-
 const mongoose = require("mongoose");
 
 const followSchema = new mongoose.Schema(
@@ -20,5 +18,8 @@ const followSchema = new mongoose.Schema(
 
 // Prevent duplicate follow
 followSchema.index({ follower_id: 1, following_id: 1 }, { unique: true });
+
+// Added index for performance
+followSchema.index({ following_id: 1 });
 
 module.exports = mongoose.model("Follow", followSchema);

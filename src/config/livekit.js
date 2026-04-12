@@ -1,4 +1,3 @@
-
 const { AccessToken } = require("livekit-server-sdk");
 
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
@@ -6,7 +5,7 @@ const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
 // Generate token
-const generateLiveKitToken = (identity, room, isStreamer = false) => {
+const generateLiveKitToken = async (identity, room, isStreamer = false) => {
     const at = new AccessToken(
         LIVEKIT_API_KEY,
         LIVEKIT_API_SECRET,
@@ -20,9 +19,11 @@ const generateLiveKitToken = (identity, room, isStreamer = false) => {
         room,
         canPublish: isStreamer,
         canSubscribe: true,
+        canPublishData: true,
     });
 
-    return at.toJwt();
+    // await for Promise compatibility
+    return await at.toJwt();
 };
 
 module.exports = {

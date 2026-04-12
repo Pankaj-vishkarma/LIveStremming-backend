@@ -1,12 +1,20 @@
-// src/modules/gift/gift.model.js
-
 const mongoose = require("mongoose");
 
 const giftSchema = new mongoose.Schema(
     {
-        name: String,
-        icon: String,
-        coin_value: Number,
+        name: {
+            type: String,
+            required: true,
+        },
+        icon: {
+            type: String,
+            required: true,
+        },
+        coin_value: {
+            type: Number,
+            required: true,
+            min: 1,
+        },
     },
     { timestamps: true }
 );

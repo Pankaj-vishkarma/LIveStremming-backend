@@ -1,5 +1,6 @@
 const Streamer = require("../streamer/streamer.model");
 const { generateLiveKitToken, LIVEKIT_URL } = require("../../config/livekit");
+const { randomUUID } = require("crypto");
 
 // Go Live
 const goLive = async (userId) => {
@@ -67,7 +68,7 @@ const joinLive = async (username, user) => {
     const roomName = streamer.channel_name;
 
     const token = await generateLiveKitToken(
-        `viewer-${Date.now()}`,
+        `viewer-${randomUUID()}`,
         roomName,
         false
     );

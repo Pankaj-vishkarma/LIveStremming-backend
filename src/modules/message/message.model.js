@@ -1,5 +1,3 @@
-// src/modules/message/message.model.js
-
 const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema(
@@ -30,5 +28,8 @@ const messageSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+
+messageSchema.index({ conversation_id: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Message", messageSchema);

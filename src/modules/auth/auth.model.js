@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
         // Hashed password
         password: {
             type: String,
-            required: false, // Optional for OTP-based login flow
+            required: false,
             minlength: 6,
         },
 
@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
         },
     },
     {
-        timestamps: true, // Adds createdAt and updatedAt
+        timestamps: true,
     }
 );
 
@@ -79,5 +79,4 @@ userSchema.methods.comparePassword = function (password) {
 };
 
 
-// Export model (CommonJS)
 module.exports = mongoose.model("User", userSchema);

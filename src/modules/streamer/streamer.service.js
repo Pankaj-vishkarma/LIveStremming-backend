@@ -67,8 +67,17 @@ const updateStreamerProfile = async (userId, data) => {
         }
     }
 
-    Object.keys(data).forEach((key) => {
-        streamer[key] = data[key];
+    //  SECURITY FIX (Whitelist)
+    const allowedFields = [
+        "channel_name",
+        "channel_description",
+        "categories",
+    ];
+
+    allowedFields.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            streamer[key] = data[key];
+        }
     });
 
     await streamer.save();
@@ -77,54 +86,59 @@ const updateStreamerProfile = async (userId, data) => {
 };
 
 
-// ADD THIS FUNCTION
-
-
+// ==============================
+//  OPTIMIZED (N+1 FIX)
+// ==============================
 const getPublicStreamers = async (query) => {
     const { limit = 10, cursor, category, is_live } = query;
 
     let filter = {};
 
-    // Filter by live status
     if (is_live !== undefined) {
         filter.is_live = is_live === "true";
     }
 
-    // Filter by category
     if (category) {
         filter.categories = category;
     }
 
-    // Cursor pagination
     if (cursor) {
         filter.createdAt = { $lt: new Date(cursor) };
     }
 
     const streamers = await Streamer.find(filter)
         .sort({ createdAt: -1 })
-        .limit(Number(limit) + 1) // +1 for has_more
+        .limit(Number(limit) + 1)
         .lean();
 
     const has_more = streamers.length > limit;
-
     if (has_more) streamers.pop();
 
-    // Join profile data
-    const enriched = await Promise.all(
-        streamers.map(async (s) => {
-            const profile = await Profile.findOne({ user_id: s.user_id });
+    // Batch profile fetch (N+1 FIX)
+    const userIds = streamers.map((s) => s.user_id);
 
-            return {
-                channel_name: s.channel_name,
-                channel_description: s.channel_description,
-                categories: s.categories,
-                is_live: s.is_live,
-                username: s.channel_name,
-                display_photo: profile?.display_photo || null,
-                created_at: s.createdAt,
-            };
-        })
-    );
+    const profiles = await Profile.find({
+        user_id: { $in: userIds },
+    }).lean();
+
+    const profileMap = {};
+    profiles.forEach((p) => {
+        profileMap[p.user_id.toString()] = p;
+    });
+
+    const enriched = streamers.map((s) => {
+        const profile = profileMap[s.user_id.toString()];
+
+        return {
+            channel_name: s.channel_name,
+            channel_description: s.channel_description,
+            categories: s.categories,
+            is_live: s.is_live,
+            username: s.channel_name,
+            display_photo: profile?.display_photo || null,
+            created_at: s.createdAt,
+        };
+    });
 
     return {
         streamers: enriched,
@@ -134,7 +148,6 @@ const getPublicStreamers = async (query) => {
         has_more,
     };
 };
-
 
 
 const getStreamerMe = async (userId) => {
@@ -161,7 +174,6 @@ const getStreamerMe = async (userId) => {
         is_live: streamer.is_live,
     };
 };
-
 
 module.exports = {
     requestStreamer,

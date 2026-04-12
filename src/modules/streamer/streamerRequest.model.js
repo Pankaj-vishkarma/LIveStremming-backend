@@ -21,6 +21,8 @@ const streamerRequestSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+streamerRequestSchema.index({ user_id: 1, request_status: 1 });
+
 module.exports = mongoose.model(
     "StreamerRequest",
     streamerRequestSchema

@@ -1,5 +1,3 @@
-// src/modules/profile/profile.service.js
-
 const Profile = require("./profile.model");
 const User = require("../auth/auth.model");
 
@@ -10,7 +8,9 @@ const getProfile = async (userId) => {
     const user = await User.findById(userId).select("-password");
 
     if (!user) {
-        throw { statusCode: 400, message: "User not found" };
+        const err = new Error("User not found");
+        err.statusCode = 400;
+        throw err;
     }
 
     let profile = await Profile.findOne({ user_id: userId });
@@ -26,6 +26,7 @@ const getProfile = async (userId) => {
         username: user.username || "",
         is_verified: user.is_verified,
         display_photo: profile.display_photo,
+        display_photo_public_id: profile.display_photo_public_id,
         about_me: profile.about_me,
         gender: profile.gender,
         date_of_birth: profile.date_of_birth,
@@ -37,6 +38,9 @@ const getProfile = async (userId) => {
 // UPDATE PROFILE
 // ==========================
 const updateProfile = async (userId, data) => {
+    console.log("userId:", userId);
+    console.log("incoming data:", data);
+
     let profile = await Profile.findOne({ user_id: userId });
 
     if (!profile) {
@@ -46,47 +50,50 @@ const updateProfile = async (userId, data) => {
     const user = await User.findById(userId);
 
     if (!user) {
-        throw { statusCode: 400, message: "User not found" };
+        const err = new Error("User not found");
+        err.statusCode = 400;
+        throw err;
     }
 
     // ==========================
-    //  HANDLE USER FIELDS
+    // USERNAME UPDATE (IMPROVED)
     // ==========================
     if (data.username !== undefined) {
         const username = data.username.trim();
 
-        //  1. validation
-        const usernameRegex = /^[a-zA-Z0-9_-]+$/;
-        if (!usernameRegex.test(username)) {
-            throw {
-                statusCode: 400,
-                message: "Username can only contain letters, numbers, _ and -",
-            };
+        if (username !== user.username) {
+            const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+
+            if (!usernameRegex.test(username)) {
+                const err = new Error(
+                    "Username can only contain letters, numbers, _ and -"
+                );
+                err.statusCode = 400;
+                throw err;
+            }
+
+            const existingUser = await User.findOne({ username }).select("_id");
+
+            if (
+                existingUser &&
+                existingUser._id.toString() !== user._id.toString()
+            ) {
+                const err = new Error("Username already taken");
+                err.statusCode = 400;
+                throw err;
+            }
+
+            user.username = username;
+            await user.save();
         }
-
-        //  2. duplicate check
-        const existingUser = await User.findOne({ username });
-
-        if (
-            existingUser &&
-            existingUser._id.toString() !== user._id.toString()
-        ) {
-            throw {
-                statusCode: 400,
-                message: "Username already taken",
-            };
-        }
-
-        // 3. save
-        user.username = username;
-        await user.save();
     }
 
     // ==========================
-    // HANDLE PROFILE FIELDS
+    // PROFILE FIELDS UPDATE
     // ==========================
     const allowedProfileFields = [
         "display_photo",
+        "display_photo_public_id",
         "about_me",
         "gender",
         "date_of_birth",
@@ -95,15 +102,18 @@ const updateProfile = async (userId, data) => {
 
     allowedProfileFields.forEach((field) => {
         if (data[field] !== undefined) {
-            profile[field] = data[field];
+            if (field === "date_of_birth") {
+                profile[field] = new Date(data[field]);
+            } else if (typeof data[field] === "string") {
+                profile[field] = data[field].trim();
+            } else {
+                profile[field] = data[field];
+            }
         }
     });
 
     await profile.save();
 
-    // ==========================
-    // FINAL RESPONSE
-    // ==========================
     return {
         id: user._id,
         role: user.role,
@@ -111,6 +121,7 @@ const updateProfile = async (userId, data) => {
         username: user.username || "",
         is_verified: user.is_verified,
         display_photo: profile.display_photo,
+        display_photo_public_id: profile.display_photo_public_id,
         about_me: profile.about_me,
         gender: profile.gender,
         date_of_birth: profile.date_of_birth,

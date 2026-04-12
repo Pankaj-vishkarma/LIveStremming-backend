@@ -1,5 +1,3 @@
-// src/modules/profile/profile.model.js
-
 const mongoose = require("mongoose");
 
 const profileSchema = new mongoose.Schema(
@@ -11,6 +9,10 @@ const profileSchema = new mongoose.Schema(
             unique: true,
         },
         display_photo: {
+            type: String,
+            default: null,
+        },
+        display_photo_public_id: {
             type: String,
             default: null,
         },
