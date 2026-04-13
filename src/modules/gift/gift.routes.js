@@ -1,10 +1,20 @@
-// src/modules/gift/gift.routes.js
-
 const express = require("express");
 const router = express.Router();
 
-const { getGiftsController } = require("./gift.controller");
+const {authMiddleware} = require("../../middleware/auth.middleware");
+const {
+  getGiftsController,
+  sendGiftController,
+} = require("./gift.controller");
 
+// Get all gifts
 router.get("/", getGiftsController);
+
+// Send gift
+router.post(
+  "/send/:username",
+  authMiddleware,
+  sendGiftController
+);
 
 module.exports = router;

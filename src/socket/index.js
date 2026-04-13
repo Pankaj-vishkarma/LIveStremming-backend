@@ -21,6 +21,11 @@ const initSocket = (server) => {
         liveHandler(io, socket);
         chatHandler(io, socket);
 
+        socket.on("join:room", (roomName) => {
+            console.log(" Joining room:", roomName);
+            socket.join(roomName);
+        });
+
         socket.on("disconnect", () => {
             console.log(" Disconnected:", socket.id);
         });
