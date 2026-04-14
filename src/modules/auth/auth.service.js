@@ -3,6 +3,7 @@ const { generateToken } = require("../../utils/jwt");
 const sendEmail = require("../../utils/mailer");
 const bcrypt = require("bcryptjs");
 const AppError = require("../../utils/AppError");
+const Wallet = require("../wallet/wallet.model");
 
 
 // ==========================
@@ -117,7 +118,6 @@ const verifyOtpService = async (email, otp) => {
         throw new AppError("User not found", 400);
     }
 
-    // OTP compare using bcrypt
     const isMatch = await bcrypt.compare(otp, user.otp);
 
     if (!user.otp || !isMatch) {
@@ -139,6 +139,12 @@ const verifyOtpService = async (email, otp) => {
 
     await user.save();
 
+    let wallet = await Wallet.findOne({ user_id: user._id });
+
+    if (!wallet) {
+        await Wallet.create({ user_id: user._id });
+    }
+
     const token = generateToken({
         id: user._id,
         role: user.role,
@@ -155,7 +161,6 @@ const verifyOtpService = async (email, otp) => {
         },
     };
 };
-
 
 
 // ==========================

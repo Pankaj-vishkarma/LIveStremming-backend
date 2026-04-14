@@ -1,5 +1,3 @@
-// src/modules/wallet/wallet.model.js
-
 const mongoose = require("mongoose");
 
 const walletSchema = new mongoose.Schema(
@@ -15,6 +13,15 @@ const walletSchema = new mongoose.Schema(
             default: 0,
         },
         streamer_earnings: {
+            type: Number,
+            default: 0,
+        },
+
+        total_earnings: {
+            type: Number,
+            default: 0,
+        },
+        total_withdrawn: {
             type: Number,
             default: 0,
         },

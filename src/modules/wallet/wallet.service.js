@@ -1,27 +1,26 @@
-
 const mongoose = require("mongoose");
 const Wallet = require("./wallet.model");
 const Transaction = require("./transaction.model");
 const Gift = require("../gift/gift.model");
 const Streamer = require("../streamer/streamer.model");
+const GiftTransaction = require("../gift/giftTransaction.model");
 const AppError = require("../../utils/AppError");
-
+const { getIO } = require("../../socket/index");
 
 const getOrCreateWallet = async (userId, session = null) => {
     let wallet = await Wallet.findOne({ user_id: userId }).session(session);
 
     if (!wallet) {
-        wallet = await Wallet.create(
-            [{ user_id: userId }],
-            { session }
-        );
-        wallet = wallet[0];
+        const created = await Wallet.create([{ user_id: userId }], { session });
+        wallet = created[0];
     }
 
     return wallet;
 };
 
-// Get wallet
+// ==========================
+// GET WALLET
+// ==========================
 const getWallet = async (userId) => {
     const wallet = await getOrCreateWallet(userId);
 
@@ -31,21 +30,27 @@ const getWallet = async (userId) => {
     };
 };
 
-// Top-up 
+// ==========================
+// TOP-UP
+// ==========================
 const topUpWallet = async (userId, amount) => {
-    if (
-        typeof amount !== "number" ||
-        amount <= 0 ||
-        !Number.isFinite(amount)
-    ) {
-        throw new AppError("Amount must be a positive number", 400);
+    //  Convert to number (important fix)
+    amount = Number(amount);
+
+    console.log(" Final amount in service:", amount, typeof amount);
+
+    //  Safe validation
+    if (!amount || isNaN(amount) || amount <= 0) {
+        throw new AppError("Invalid top-up amount", 400);
     }
 
     const wallet = await getOrCreateWallet(userId);
 
+    //  Add balance
     wallet.viewer_balance += amount;
     await wallet.save();
 
+    //  Create transaction
     await Transaction.create({
         user_id: userId,
         type: "top_up",
@@ -58,43 +63,56 @@ const topUpWallet = async (userId, amount) => {
     };
 };
 
-// Send gift 
+// ==========================
+// SEND GIFT (MAIN LOGIC)
+// ==========================
 const sendGift = async (userId, username, giftId) => {
     const session = await mongoose.startSession();
 
     try {
         session.startTransaction();
 
+        // 1. Gift check
         const gift = await Gift.findById(giftId).session(session);
-        if (!gift)
-            throw { statusCode: 400, message: "Gift not found" };
+        if (!gift || gift.is_active === false) {
+            throw new AppError("Gift not available", 400);
+        }
 
+        // 2. Streamer check
         const streamer = await Streamer.findOne({
             channel_name: username,
         }).session(session);
 
-        if (!streamer)
-            throw { statusCode: 400, message: "Streamer not found" };
-
-        const senderWallet = await getOrCreateWallet(userId, session);
-
-        if (senderWallet.viewer_balance < gift.coin_value) {
-            throw { statusCode: 400, message: "Insufficient balance" };
+        if (!streamer) {
+            throw new AppError("Streamer not found", 400);
         }
 
+        // 3. Prevent self gift
+        if (streamer.user_id.toString() === userId.toString()) {
+            throw new AppError("You cannot send gift to yourself", 400);
+        }
+
+        // 4. Wallets
+        const senderWallet = await getOrCreateWallet(userId, session);
         const receiverWallet = await getOrCreateWallet(
             streamer.user_id,
             session
         );
 
-        // Deduct + add
+        // 5. Balance check
+        if (senderWallet.viewer_balance < gift.coin_value) {
+            throw new AppError("Insufficient balance", 400);
+        }
+
+        // 6. Deduct + add
         senderWallet.viewer_balance -= gift.coin_value;
         receiverWallet.streamer_earnings += gift.coin_value;
+        receiverWallet.total_earnings += gift.coin_value;
 
         await senderWallet.save({ session });
         await receiverWallet.save({ session });
 
-        // Transactions
+        // 7. Wallet Transactions
         await Transaction.create(
             [
                 {
@@ -108,11 +126,37 @@ const sendGift = async (userId, username, giftId) => {
                     amount: gift.coin_value,
                 },
             ],
-            { session }
+            { session, ordered: true }
+        );
+
+        // 8. Gift Transaction (keep for history)
+        await GiftTransaction.create(
+            [
+                {
+                    sender: userId,
+                    receiver: streamer.user_id,
+                    gift: gift._id,
+                    coin_value: gift.coin_value,
+                },
+            ],
+            { session, ordered: true }
         );
 
         await session.commitTransaction();
         session.endSession();
+
+        try {
+            const io = getIO();
+
+            io.to(username).emit("gift:received", {
+                senderId: userId,
+                giftName: gift.name,
+                giftIcon: gift.icon,
+                coin_value: gift.coin_value,
+            });
+        } catch (err) {
+            console.error("Socket emit error:", err.message);
+        }
 
         return {
             gift_name: gift.name,
@@ -122,12 +166,81 @@ const sendGift = async (userId, username, giftId) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-        throw error;
+
+        console.error(" SEND GIFT ERROR:", error.message);
+        console.error("FULL ERROR:", error);
+
+        throw error instanceof AppError
+            ? error
+            : new AppError("Failed to send gift", 500);
     }
+};
+
+// ==========================
+// GET TRANSACTIONS (PAGINATION)
+// ==========================
+const getTransactions = async (userId, { limit = 10, cursor }) => {
+    const query = { user_id: userId };
+
+    // Cursor logic
+    if (cursor) {
+        query.createdAt = { $lt: new Date(cursor) };
+    }
+
+    const transactions = await Transaction.find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit + 1); // extra fetch to check has_more
+
+    let has_more = false;
+
+    if (transactions.length > limit) {
+        has_more = true;
+        transactions.pop();
+    }
+
+    const next_cursor = transactions.length
+        ? transactions[transactions.length - 1].createdAt
+        : null;
+
+    return {
+        transactions,
+        next_cursor,
+        has_more,
+    };
+};
+
+const withdrawWallet = async (userId, data) => {
+    const { amount, bank_account_number, bank_ifsc, bank_account_name } = data;
+
+    const wallet = await getOrCreateWallet(userId);
+
+    if (wallet.streamer_earnings < amount) {
+        throw new AppError("Insufficient earnings", 400);
+    }
+
+    // deduct balance
+    wallet.streamer_earnings -= amount;
+    wallet.total_withdrawn += amount;
+    await wallet.save();
+
+    // transaction save
+    await Transaction.create({
+        user_id: userId,
+        type: "withdraw",
+        amount,
+        status: "success",
+    });
+
+    return {
+        amount,
+        status: "success",
+    };
 };
 
 module.exports = {
     getWallet,
     topUpWallet,
     sendGift,
+    getTransactions,
+    withdrawWallet,
 };
