@@ -5,6 +5,7 @@ const giftSchema = new mongoose.Schema(
         name: {
             type: String,
             required: true,
+            trim: true,
         },
         icon: {
             type: String,
@@ -15,8 +16,11 @@ const giftSchema = new mongoose.Schema(
             required: true,
             min: 1,
         },
+        is_active: {
+            type: Boolean,
+            default: true,
+        },
     },
     { timestamps: true }
 );
-
 module.exports = mongoose.model("Gift", giftSchema);
