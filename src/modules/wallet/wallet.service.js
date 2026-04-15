@@ -97,7 +97,9 @@ const sendGift = async (userId, username, giftId) => {
 
         // 5. Balance check
         if (senderWallet.viewer_balance < gift.coin_value) {
-            throw new AppError("Insufficient balance", 400);
+            const err = new AppError("Insufficient balance", 400);
+            err.code = "INSUFFICIENT_BALANCE";
+            throw err;
         }
 
         // 6. Deduct + add

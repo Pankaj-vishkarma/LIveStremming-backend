@@ -52,6 +52,7 @@ const errorMiddleware = (err, req, res) => {
     const response = {
         success: false,
         message,
+        code: err.code || "SERVER_ERROR",
     };
 
     if (process.env.NODE_ENV === "development") {
