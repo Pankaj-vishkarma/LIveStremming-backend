@@ -34,7 +34,7 @@ const topUpController = asyncHandler(async (req, res) => {
 
     const data = await topUpWallet(req.user._id, amount);
 
-    return successResponse(res, "payment initiated", data);
+    return successResponse(res, "Topup initiated, proceed to payment", data);
 });
 
 // ==========================

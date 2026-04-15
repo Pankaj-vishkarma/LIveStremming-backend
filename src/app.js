@@ -1,5 +1,3 @@
-
-
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -10,14 +8,15 @@ const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
 const morgan = require("morgan");
 
-
 const routes = require("./routes/index");
 const { errorMiddleware } = require("./middleware/error.middleware");
 
 const path = require("path");
 
-const app = express();
+// IMPORT STRIPE WEBHOOK
+const stripeWebhook = require("./modules/wallet/stripe.webhook");
 
+const app = express();
 
 // ==========================
 // SECURITY MIDDLEWARES
@@ -43,7 +42,6 @@ app.use(
     })
 );
 
-
 // ==========================
 // CORS CONFIG
 // ==========================
@@ -55,6 +53,22 @@ app.use(
     })
 );
 
+// ==========================
+// STRIPE WEBHOOK (RAW BODY REQUIRED)
+// ==========================
+
+app.post(
+    "/api/v1/wallet/stripe-webhook",
+    express.raw({ type: "application/json" }),
+    (req, res, next) => {
+        console.log("🔥🔥🔥 WEBHOOK ROUTE HIT");
+        console.log("👉 Headers:", req.headers["stripe-signature"] ? "Signature Present" : "No Signature");
+        console.log("👉 Raw body length:", req.body?.length);
+
+        next(); // important → actual handler call होगा
+    },
+    stripeWebhook.handleWebhook
+);
 
 // ==========================
 // BODY PARSER
@@ -65,13 +79,11 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-
 // ==========================
 // COOKIE PARSER
 // ==========================
 
 app.use(cookieParser());
-
 
 // ==========================
 // HEALTH CHECK
@@ -81,13 +93,11 @@ app.get("/", (req, res) => {
     res.send("API is running...");
 });
 
-
 // ==========================
 // ROUTES
 // ==========================
 
 app.use("/api/v1", routes);
-
 
 // ==========================
 // 404 HANDLER
@@ -100,12 +110,10 @@ app.use((req, res) => {
     });
 });
 
-
 // ==========================
 // GLOBAL ERROR HANDLER
 // ==========================
 
 app.use(errorMiddleware);
-
 
 module.exports = app;

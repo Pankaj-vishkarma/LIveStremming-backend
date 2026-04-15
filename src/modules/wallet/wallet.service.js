@@ -34,31 +34,27 @@ const getWallet = async (userId) => {
 // TOP-UP
 // ==========================
 const topUpWallet = async (userId, amount) => {
-    //  Convert to number (important fix)
+    // Convert to number
     amount = Number(amount);
 
     console.log(" Final amount in service:", amount, typeof amount);
 
-    //  Safe validation
+    // Safe validation
     if (!amount || isNaN(amount) || amount <= 0) {
         throw new AppError("Invalid top-up amount", 400);
     }
 
-    const wallet = await getOrCreateWallet(userId);
-
-    //  Add balance
-    wallet.viewer_balance += amount;
-    await wallet.save();
-
-    //  Create transaction
-    await Transaction.create({
+    const transaction = await Transaction.create({
         user_id: userId,
         type: "top_up",
         amount,
+        status: "PENDING",
+        reference: null, // reference will be updated after payment confirmation
     });
 
     return {
         amount,
+        transaction_id: transaction._id,
         currency: "INR",
     };
 };
@@ -189,7 +185,8 @@ const getTransactions = async (userId, { limit = 10, cursor }) => {
 
     const transactions = await Transaction.find(query)
         .sort({ createdAt: -1 })
-        .limit(limit + 1); // extra fetch to check has_more
+        .limit(limit + 1)
+        .lean(); //important (performance + clean object)
 
     let has_more = false;
 
@@ -203,7 +200,13 @@ const getTransactions = async (userId, { limit = 10, cursor }) => {
         : null;
 
     return {
-        transactions,
+        transactions: transactions.map((tx) => ({
+            _id: tx._id,
+            type: tx.type,
+            amount: tx.amount,
+            status: tx.status, // ensure status included
+            createdAt: tx.createdAt,
+        })),
         next_cursor,
         has_more,
     };
@@ -228,13 +231,86 @@ const withdrawWallet = async (userId, data) => {
         user_id: userId,
         type: "withdraw",
         amount,
-        status: "success",
+        status: "SUCCESS",
     });
 
     return {
         amount,
-        status: "success",
+        status: "SUCCESS",
     };
+};
+
+const confirmTopUp = async ({ userId, amount, reference }) => {
+    const session = await mongoose.startSession();
+
+    try {
+        console.log("confirmTopUp called");
+        console.log("userId:", userId);
+        console.log("amount:", amount);
+        console.log("reference:", reference);
+
+        session.startTransaction();
+
+        const wallet = await getOrCreateWallet(userId, session);
+
+        console.log(" Wallet before update:", wallet.viewer_balance);
+
+        // FIX 1: session use
+        const existing = await Transaction.findById(reference).session(session);
+
+        console.log(" Transaction found:", existing);
+
+        if (!existing) {
+            throw new Error("Transaction not found");
+        }
+
+        //  only skip if already SUCCESS
+        if (existing.status === "SUCCESS") {
+            console.log(" Transaction already SUCCESS, skipping...");
+            await session.commitTransaction();
+            return;
+        }
+
+        //  wallet update
+        wallet.viewer_balance += amount;
+
+        console.log(" Wallet after update:", wallet.viewer_balance);
+
+        await wallet.save({ session });
+
+        // FIX 2: safe update with session
+        await Transaction.updateOne(
+            { _id: reference },
+            {
+                $set: {
+                    status: "SUCCESS",
+                    reference,
+                },
+            },
+            { session }
+        );
+
+        console.log(" Transaction marked SUCCESS");
+
+        await session.commitTransaction();
+        session.endSession();
+
+        console.log(" Wallet updated successfully");
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+
+        console.error(" confirmTopUp error:", error.message);
+        console.error(error);
+
+        throw error;
+    }
+};
+const failTopUp = async (reference) => {
+    await Transaction.findByIdAndUpdate(
+        reference,
+        { status: "FAILED" }
+    );
 };
 
 module.exports = {
@@ -243,4 +319,6 @@ module.exports = {
     sendGift,
     getTransactions,
     withdrawWallet,
+    confirmTopUp,
+    failTopUp,
 };

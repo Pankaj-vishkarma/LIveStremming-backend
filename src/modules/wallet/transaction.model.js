@@ -16,6 +16,18 @@ const transactionSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
+        status: {
+            type: String,
+            enum: ["PENDING", "SUCCESS", "FAILED"],
+            default: "PENDING",
+        },
+        payment_provider: {
+            type: String,
+            default: "STRIPE",
+        },
+        reference: {
+            type: String, // stripe session id
+        }
     },
     { timestamps: true }
 );
