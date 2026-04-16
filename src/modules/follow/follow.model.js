@@ -16,10 +16,26 @@ const followSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Prevent duplicate follow
-followSchema.index({ follower_id: 1, following_id: 1 }, { unique: true });
+// ==========================
+// PREVENT SELF FOLLOW (DB LEVEL SAFETY)
+// ==========================
+followSchema.pre("save", async function () {
+    if (this.follower_id.equals(this.following_id)) {
+        throw new Error("Cannot follow yourself");
+    }
+});
+// ==========================
+// INDEXES
+// ==========================
 
-// Added index for performance
-followSchema.index({ following_id: 1 });
+// Prevent duplicate follow
+followSchema.index(
+    { follower_id: 1, following_id: 1 },
+    { unique: true }
+);
+
+// Performance indexes
+followSchema.index({ following_id: 1 }); // followers list
+followSchema.index({ follower_id: 1 });  // following list
 
 module.exports = mongoose.model("Follow", followSchema);

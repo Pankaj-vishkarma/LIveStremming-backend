@@ -61,11 +61,11 @@ app.post(
     "/api/v1/wallet/stripe-webhook",
     express.raw({ type: "application/json" }),
     (req, res, next) => {
-        console.log("🔥🔥🔥 WEBHOOK ROUTE HIT");
-        console.log("👉 Headers:", req.headers["stripe-signature"] ? "Signature Present" : "No Signature");
-        console.log("👉 Raw body length:", req.body?.length);
+        console.log(" WEBHOOK ROUTE HIT");
+        console.log(" Headers:", req.headers["stripe-signature"] ? "Signature Present" : "No Signature");
+        console.log(" Raw body length:", req.body?.length);
 
-        next(); // important → actual handler call होगा
+        next();
     },
     stripeWebhook.handleWebhook
 );

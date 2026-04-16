@@ -4,7 +4,11 @@ const Profile = require("../profile/profile.model");
 const User = require("../auth/auth.model");
 const AppError = require("../../utils/AppError");
 
-// Follow
+
+
+// ==========================
+// FOLLOW STREAMER
+// ==========================
 const followStreamer = async (userId, username) => {
     const streamer = await Streamer.findOne({
         channel_name: username,
@@ -18,15 +22,25 @@ const followStreamer = async (userId, username) => {
         throw new AppError("Cannot follow yourself", 400);
     }
 
-    await Follow.create({
-        follower_id: userId,
-        following_id: streamer.user_id,
-    });
+    try {
+        await Follow.create({
+            follower_id: userId,
+            following_id: streamer.user_id,
+        });
+    } catch (error) {
+        // Handle duplicate follow
+        if (error.code === 11000) {
+            throw new AppError("Already following this streamer", 400);
+        }
+        throw error;
+    }
 
     return true;
 };
 
-// Unfollow
+// ==========================
+// UNFOLLOW STREAMER
+// ==========================
 const unfollowStreamer = async (userId, username) => {
     const streamer = await Streamer.findOne({
         channel_name: username,
@@ -48,9 +62,13 @@ const unfollowStreamer = async (userId, username) => {
     return true;
 };
 
-// Following list
+// ==========================
+// GET FOLLOWING LIST
+// ==========================
 const getFollowing = async (userId) => {
-    const follows = await Follow.find({ follower_id: userId }).lean();
+    const follows = await Follow.find({ follower_id: userId })
+        .select("following_id")
+        .lean();
 
     const userIds = follows.map(f => f.following_id);
 
@@ -65,9 +83,11 @@ const getFollowing = async (userId) => {
     const streamerMap = new Map(streamers.map(s => [s.user_id.toString(), s]));
 
     const result = follows.map((f) => {
-        const user = userMap.get(f.following_id.toString());
-        const profile = profileMap.get(f.following_id.toString());
-        const streamer = streamerMap.get(f.following_id.toString());
+        const id = f.following_id.toString();
+
+        const user = userMap.get(id);
+        const profile = profileMap.get(id);
+        const streamer = streamerMap.get(id);
 
         return {
             username: user?.username,
@@ -80,7 +100,9 @@ const getFollowing = async (userId) => {
     return result;
 };
 
-// Followers list
+// ==========================
+// GET FOLLOWERS LIST (CURSOR PAGINATION)
+// ==========================
 const getFollowers = async (userId, query) => {
     const { limit = 20, cursor } = query;
 
@@ -100,20 +122,29 @@ const getFollowers = async (userId, query) => {
 
     const userIds = followers.map(f => f.follower_id);
 
-    const [users, profiles] = await Promise.all([
+    // OPTIMIZED (single Promise.all)
+    const [users, profiles, streamers] = await Promise.all([
         User.find({ _id: { $in: userIds } }).lean(),
         Profile.find({ user_id: { $in: userIds } }).lean(),
+        Streamer.find({ user_id: { $in: userIds } }).lean(),
     ]);
 
     const userMap = new Map(users.map(u => [u._id.toString(), u]));
     const profileMap = new Map(profiles.map(p => [p.user_id.toString(), p]));
+    const streamerMap = new Map(
+        streamers.map(s => [s.user_id.toString(), s])
+    );
 
     const result = followers.map((f) => {
-        const user = userMap.get(f.follower_id.toString());
-        const profile = profileMap.get(f.follower_id.toString());
+        const id = f.follower_id.toString();
+
+        const user = userMap.get(id);
+        const profile = profileMap.get(id);
+        const streamer = streamerMap.get(id);
 
         return {
             username: user?.username,
+            channel_name: streamer?.channel_name || user?.username,
             display_photo: profile?.display_photo || null,
             followed_at: f.createdAt,
         };
@@ -128,9 +159,32 @@ const getFollowers = async (userId, query) => {
     };
 };
 
+// ==========================
+// CHECK FOLLOW STATUS
+// ==========================
+const checkFollowStatus = async (userId, username) => {
+    const streamer = await Streamer.findOne({
+        channel_name: username,
+    });
+
+    if (!streamer) {
+        throw new AppError("Streamer not found", 400);
+    }
+
+    const exists = await Follow.exists({
+        follower_id: userId,
+        following_id: streamer.user_id,
+    });
+
+    return {
+        is_following: !!exists,
+    };
+};
+
 module.exports = {
     followStreamer,
     unfollowStreamer,
     getFollowing,
     getFollowers,
+    checkFollowStatus,
 };

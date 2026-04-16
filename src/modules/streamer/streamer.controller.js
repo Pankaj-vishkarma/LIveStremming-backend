@@ -10,6 +10,7 @@ const {
     updateStreamerProfile,
     getPublicStreamers,
     getStreamerMe,
+    getStreamerByUsername
 } = require("./streamer.service");
 
 const {
@@ -81,11 +82,24 @@ const getStreamerMeController = asyncHandler(async (req, res) => {
     return successResponse(res, "streamer data fetched", data);
 });
 
+const getStreamerByUsernameController = asyncHandler(async (req, res) => {
+    const { username } = req.params;
+
+    const data = await getStreamerByUsername(username);
+
+    return successResponse(
+        res,
+        "streamer profile fetched",
+        data
+    );
+});
+
 module.exports = {
     requestStreamerController,
     getRequestStatusController,
     getStreamerProfileController,
     updateStreamerProfileController,
     getPublicStreamersController,
-    getStreamerMeController
+    getStreamerMeController,
+    getStreamerByUsernameController
 };

@@ -9,7 +9,8 @@ const {
     getStreamerProfileController,
     updateStreamerProfileController,
     getPublicStreamersController,
-    getStreamerMeController
+    getStreamerMeController,
+    getStreamerByUsernameController
 } = require("./streamer.controller");
 
 const { authMiddleware } = require("../../middleware/auth.middleware");
@@ -70,8 +71,16 @@ router.get(
     authMiddleware,
     roleMiddleware("streamer"),
     getStreamerMeController
-    
+
 );
+
+// ==========================
+// PUBLIC STREAMER PROFILE
+// ==========================
+router.get("/:username", async (req, res, next) => {
+    req.params.channel_name = req.params.username; // alias
+    next();
+}, getStreamerByUsernameController);
 
 
 module.exports = router;

@@ -22,7 +22,7 @@ router.use("/messages", messageRoutes);
 router.use("/wallet", walletRoutes);
 router.use("/gifts", giftRoutes);
 router.use("/", liveRoutes);
-router.use("/", followRoutes);
+router.use("/follow", followRoutes);
 router.use("/admin", adminRoutes);
 router.use("/upload", uploadRoutes);
 
