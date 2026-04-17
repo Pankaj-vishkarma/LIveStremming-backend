@@ -2,14 +2,22 @@ const Message = require("./message.model");
 const Conversation = require("./conversation.model");
 const User = require("../auth/auth.model");
 const AppError = require("../../utils/AppError");
+const Profile = require("../profile/profile.model");
+const { getIO } = require("../../socket");
 
 // Create or find conversation
 const getOrCreateConversation = async (userId, otherUserId) => {
-    const convo = await Conversation.findOneAndUpdate(
-        { participants: { $all: [userId, otherUserId] } },
-        { $setOnInsert: { participants: [userId, otherUserId] } },
-        { new: true, upsert: true }
-    );
+    // Step 1: find existing conversation
+    let convo = await Conversation.findOne({
+        participants: { $all: [userId, otherUserId] },
+    });
+
+    // Step 2: create if not exist
+    if (!convo) {
+        convo = await Conversation.create({
+            participants: [userId, otherUserId],
+        });
+    }
 
     return convo;
 };
@@ -38,7 +46,7 @@ const sendMessage = async (senderId, username, content) => {
         content,
     });
 
-    // Update conversation 
+    // Update conversation
     await Conversation.updateOne(
         { _id: convo._id },
         {
@@ -47,10 +55,27 @@ const sendMessage = async (senderId, username, content) => {
         }
     );
 
+    // SOCKET EMIT (REAL-TIME)
+    try {
+        const io = getIO();
+
+        io.to(receiver._id.toString()).emit("new_message", {
+            id: message._id,
+            conversation_id: convo._id,
+            sender_id: senderId,
+            content,
+            created_at: message.createdAt,
+        });
+
+        console.log(" Message emitted to:", receiver._id.toString());
+    } catch (error) {
+        console.log(" Socket not initialized");
+    }
+
     return message;
 };
 
-// Get conversations list 
+// Get conversations list
 const getConversations = async (userId) => {
     const convos = await Conversation.find({
         participants: userId,
@@ -58,24 +83,32 @@ const getConversations = async (userId) => {
         .sort({ last_message_at: -1 })
         .lean();
 
-    // Extract other user ids
     const userIds = convos.map((c) =>
         c.participants.find(
             (id) => id.toString() !== userId.toString()
         )
     );
 
-    // Batch fetch users
     const users = await User.find({
         _id: { $in: userIds },
     }).lean();
+
+    const profiles = await Profile.find({
+        user_id: { $in: userIds },
+    }).lean();
+
+    const profileMap = {};
+    profiles.forEach((p) => {
+        profileMap[p.user_id.toString()] = p;
+    });
+
+
 
     const userMap = {};
     users.forEach((u) => {
         userMap[u._id.toString()] = u;
     });
 
-    // Aggregation for unread counts
     const unreadData = await Message.aggregate([
         {
             $match: {
@@ -96,19 +129,23 @@ const getConversations = async (userId) => {
         unreadMap[u._id.toString()] = u.count;
     });
 
-    // Final response
     return convos.map((c) => {
         const otherUserId = c.participants.find(
             (id) => id.toString() !== userId.toString()
         );
 
         const user = userMap[otherUserId?.toString()];
+        const profile = profileMap[otherUserId?.toString()];
+
+        console.log(" Conversation:", c._id);
+        console.log(" Other User:", user?.username);
+        console.log("user image:", user?.display_photo || user?.profile_image);
 
         return {
             conversation_id: c._id,
             other_user: {
                 username: user?.username || "Unknown",
-                display_photo: null,
+                display_photo: profile?.display_photo || null,
             },
             last_message: c.last_message,
             last_message_at: c.last_message_at,
@@ -139,7 +176,7 @@ const getMessages = async (userId, username, query) => {
     }
 
     const messages = await Message.find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: 1 })
         .limit(Number(limit) + 1)
         .lean();
 
@@ -149,10 +186,8 @@ const getMessages = async (userId, username, query) => {
     return {
         messages: messages.map((m) => ({
             id: m._id,
-            sender_username:
-                m.sender_id.toString() === userId.toString()
-                    ? "me"
-                    : otherUser.username,
+            is_me: m.sender_id.toString() === userId.toString(),
+            sender_username: otherUser.username,
             content: m.content,
             read_at: m.read_at,
             created_at: m.createdAt,

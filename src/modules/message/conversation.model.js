@@ -20,7 +20,10 @@ const conversationSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Added index for faster participant-based queries
-conversationSchema.index({ participants: 1 });
+// Prevent duplicate conversations (IMPORTANT)
+conversationSchema.index(
+    { participants: 1 },
+    { unique: true }
+);
 
 module.exports = mongoose.model("Conversation", conversationSchema);

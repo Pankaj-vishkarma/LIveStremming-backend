@@ -21,6 +21,13 @@ const initSocket = (server) => {
         liveHandler(io, socket);
         chatHandler(io, socket);
 
+        // NEW: USER JOIN (IMPORTANT FOR CHAT)
+        socket.on("join:user", (userId) => {
+            console.log(" User joined personal room:", userId);
+            socket.join(userId);
+        });
+
+        // EXISTING (unchanged)
         socket.on("join:room", (roomName) => {
             console.log(" Joining room:", roomName);
             socket.join(roomName);

@@ -13,7 +13,8 @@ const startServer = async () => {
         const httpServer = http.createServer(app);
 
         // INIT SOCKET
-        initSocket(httpServer);
+        const io = initSocket(httpServer);
+        global.io = io;
 
         // Start Server
         const server = httpServer.listen(env.PORT, () => {
