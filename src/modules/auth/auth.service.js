@@ -86,16 +86,12 @@ const sendOtpService = async (email) => {
     let user = await User.findOne({ email });
 
     if (user) {
+        // Existing user → update OTP
         user.otp = otp;
         user.otpExpiry = otpExpiry;
         await user.save();
     } else {
-        // create temp user with OTP
-        user = await User.create({
-            email,
-            otp,
-            otpExpiry,
-        });
+
     }
 
     await sendEmail(
@@ -104,7 +100,9 @@ const sendOtpService = async (email) => {
         `Your OTP is ${otp}. It will expire in 5 minutes.`
     );
 
-    return null;
+    return {
+        email, // optional (debug / frontend use)
+    };
 };
 
 
@@ -114,13 +112,23 @@ const sendOtpService = async (email) => {
 const verifyOtpService = async (email, otp) => {
     let user = await User.findOne({ email });
 
+    // NEW USER CASE
     if (!user) {
-        throw new AppError("User not found", 400);
+        user = await User.create({
+            email,
+            username: email.split("@")[0], // temporary unique username
+            is_verified: false,
+        });
+    }
+
+    // OTP must exist
+    if (!user.otp) {
+        throw new AppError("OTP not found. Please request again", 400);
     }
 
     const isMatch = await bcrypt.compare(otp, user.otp);
 
-    if (!user.otp || !isMatch) {
+    if (!isMatch) {
         throw new AppError("Invalid OTP", 400);
     }
 
@@ -133,18 +141,21 @@ const verifyOtpService = async (email, otp) => {
 
     const isNewUser = !isProfileComplete;
 
+    // mark verified
     user.is_verified = true;
     user.otp = null;
     user.otpExpiry = null;
 
     await user.save();
 
+    // wallet create
     let wallet = await Wallet.findOne({ user_id: user._id });
 
     if (!wallet) {
         await Wallet.create({ user_id: user._id });
     }
 
+    // token generate
     const token = generateToken({
         id: user._id,
         role: user.role,
