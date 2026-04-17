@@ -31,7 +31,7 @@ app.use(morgan("dev"));
 app.use(hpp());
 
 // Rate limiting (API protection)
-app.use(
+/*app.use(
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 100,
@@ -40,7 +40,7 @@ app.use(
             message: "Too many requests, please try again later",
         },
     })
-);
+);*/
 
 // ==========================
 // CORS CONFIG
