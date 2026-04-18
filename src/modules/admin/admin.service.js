@@ -59,13 +59,23 @@ const getStreamerRequests = async (query = {}) => {
         user_id: { $in: userIds },
     }).lean();
 
+    const users = await User.find({
+        _id: { $in: userIds },
+    }).lean();
+
     const profileMap = {};
     profiles.forEach((p) => {
         profileMap[p.user_id.toString()] = p;
     });
 
+    const userMap = {};
+    users.forEach((u) => {
+        userMap[u._id.toString()] = u;
+    });
+
     const enriched = requests.map((r) => {
         const profile = profileMap[r.user_id.toString()];
+        const user = userMap[r.user_id.toString()];
 
         return {
             _id: r._id,
@@ -74,12 +84,15 @@ const getStreamerRequests = async (query = {}) => {
             createdAt: r.createdAt,
             user: {
                 user_id: r.user_id,
-                username: profile?.username || "Unknown",
+                username:
+                    profile?.username ||
+                    user?.username ||
+                    user?.email ||
+                    "Unknown",
                 display_photo: profile?.display_photo || null,
             },
         };
     });
-
     const total = await StreamerRequest.countDocuments(filter);
 
     return {

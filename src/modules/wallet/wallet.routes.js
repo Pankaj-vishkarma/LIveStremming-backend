@@ -9,6 +9,7 @@ const {
     getTransactionsController,
     withdrawController,
 } = require("./wallet.controller");
+const { confirmTopUp } = require("./wallet.service");
 
 const { authMiddleware } = require("../../middleware/auth.middleware");
 
@@ -43,6 +44,30 @@ router.post(
     "/create-checkout-session",
     authMiddleware,
     stripeController.createCheckoutSession
+);
+
+router.post(
+    "/confirm-topup",
+    authMiddleware,
+    async (req, res) => {
+        try {
+            const { transaction_id, amount } = req.body;
+
+            await confirmTopUp({
+                userId: req.user._id,
+                amount,
+                reference: transaction_id,
+            });
+
+            res.json({ success: true });
+        } catch (error) {
+            console.error("Confirm topup error:", error.message);
+            res.status(500).json({
+                success: false,
+                message: "Failed to confirm topup",
+            });
+        }
+    }
 );
 
 module.exports = router;

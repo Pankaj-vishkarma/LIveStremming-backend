@@ -263,7 +263,12 @@ const confirmTopUp = async ({ userId, amount, reference }) => {
         console.log(" Transaction found:", existing);
 
         if (!existing) {
-            throw new Error("Transaction not found");
+            console.error("Transaction not found:", reference);
+
+            await session.abortTransaction();
+            session.endSession();
+
+            return; // ❌ crash mat karo
         }
 
         //  only skip if already SUCCESS

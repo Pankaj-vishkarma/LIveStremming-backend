@@ -11,7 +11,7 @@ const {
 // HANDLE STRIPE WEBHOOK
 // ==========================
 const handleWebhook = asyncHandler(async (req, res) => {
-    console.log("🔥 Webhook route hit");
+    console.log(" Webhook route hit");
     const sig = req.headers["stripe-signature"];
 
     let event;
