@@ -4,18 +4,45 @@ const Profile = require("../profile/profile.model");
 const User = require("../auth/auth.model");
 
 const requestStreamer = async (userId) => {
-    const existing = await StreamerRequest.findOne({
+    const existingRequest = await StreamerRequest.findOne({
         user_id: userId,
-        request_status: { $in: ["pending", "approved"] },
     });
 
-    if (existing) {
-        throw {
-            statusCode: 400,
-            message: "User already has a pending request",
-        };
+    // ==========================
+    // CASE 1: ALREADY EXISTS
+    // ==========================
+    if (existingRequest) {
+
+        // pending → block
+        if (existingRequest.request_status === "pending") {
+            throw {
+                statusCode: 400,
+                message: "Request already pending",
+            };
+        }
+
+        //  approved → block
+        if (existingRequest.request_status === "approved") {
+            throw {
+                statusCode: 400,
+                message: "Already approved as streamer",
+            };
+        }
+
+        // rejected → REAPPLY (FIX)
+        if (existingRequest.request_status === "rejected") {
+            existingRequest.request_status = "pending";
+            existingRequest.rejection_reason = null;
+
+            await existingRequest.save();
+
+            return existingRequest;
+        }
     }
 
+    // ==========================
+    // CASE 2: FIRST TIME APPLY
+    // ==========================
     const request = await StreamerRequest.create({
         user_id: userId,
     });

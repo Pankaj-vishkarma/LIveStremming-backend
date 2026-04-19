@@ -32,7 +32,7 @@ const authMiddleware = async (req, res, next) => {
         // ==========================
         // ADMIN FLOW
         // ==========================
-        if (decoded.role === "super_admin" || decoded.role === "moderator") {
+        if (decoded.role === "admin" || decoded.role === "moderator") {
             const admin = await Admin.findById(decoded.id);
 
             if (!admin) {
@@ -43,6 +43,7 @@ const authMiddleware = async (req, res, next) => {
             }
 
             req.admin = admin;
+            req.role = "admin";
 
             return next();
         }

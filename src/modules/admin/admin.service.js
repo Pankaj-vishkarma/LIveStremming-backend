@@ -9,17 +9,27 @@ const User = require("../auth/auth.model");
 
 // Admin login
 const adminLogin = async (email, password) => {
-    const admin = await Admin.findOne({ email });
 
-    if (!admin) throw new AppError("Invalid credentials", 400);
+    // normalize email
+    const normalizedEmail = email?.toLowerCase().trim();
+
+    const admin = await Admin.findOne({ email: normalizedEmail });
+
+    if (!admin) {
+        throw new AppError("Invalid credentials", 400);
+    }
 
     const match = await bcrypt.compare(password, admin.password);
 
-    if (!match) throw new AppError("Invalid credentials", 400);
+
+    if (!match) {
+        throw new AppError("Invalid credentials", 400);
+    }
 
     const token = generateToken({
         id: admin._id,
-        role: admin.role
+        role: admin.role,
+        email: admin.email,
     });
 
     return {
@@ -31,7 +41,6 @@ const adminLogin = async (email, password) => {
         },
     };
 };
-
 // Get all requests
 
 const getStreamerRequests = async (query = {}) => {

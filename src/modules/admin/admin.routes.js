@@ -1,5 +1,3 @@
-
-
 const express = require("express");
 const router = express.Router();
 
@@ -8,6 +6,7 @@ const {
     getRequestsController,
     approveController,
     rejectController,
+    getAdminMe,
 } = require("./admin.controller");
 
 const { authMiddleware } = require("../../middleware/auth.middleware");
@@ -20,6 +19,13 @@ const { roleMiddleware } = require("../../middleware/role.middleware");
 
 // Admin login (no auth required)
 router.post("/login", loginController);
+
+router.get(
+    "/me",
+    authMiddleware,
+    roleMiddleware("admin"),
+    getAdminMe
+);
 
 
 // ==========================
